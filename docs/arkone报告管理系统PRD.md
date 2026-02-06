@@ -1,6 +1,6 @@
 # ArkOne 报告管理系统 PRD（前端优先版）
 
-版本: v0.4
+版本: v0.5
 日期: 2026-02-06
 状态: Draft
 负责人: Bao
@@ -82,9 +82,11 @@
 1. 页眉
 2. 信息块
 3. 结果表格
-4. 文本说明
-5. 条码/二维码
-6. 页脚
+4. 结果卡片（综述/摘要）
+5. 图片组件（Logo/示意图）
+6. 文本说明
+7. 条码/二维码
+8. 页脚
 
 显示规则:
 1. 始终显示
@@ -121,9 +123,12 @@
 1. patient
 2. order
 3. results
-4. source
-5. org
-6. doctor
+4. summaryCards
+5. resistanceResults
+6. hivResistanceResults
+7. source
+8. org
+9. doctor
 
 字段示例:
 1. patient.name
@@ -133,11 +138,24 @@
 5. order.orderNo
 6. order.sampleTime
 7. order.reportTime
-8. results[].itemName
-9. results[].value
-10. results[].unit
-11. results[].refRange
-12. results[].flag
+8. order.testDate
+9. order.subtype
+10. order.coverage
+11. order.analysisSystem
+12. order.threshold
+13. order.mutationCount
+14. results[].itemName
+15. results[].value
+16. results[].unit
+17. results[].refRange
+18. results[].flag
+19. summaryCards[].title
+20. summaryCards[].value
+21. summaryCards[].iconUrl
+22. resistanceResults[].category
+23. resistanceResults[].latinName
+24. hivResistanceResults[].geneRegion
+25. org.logo
 
 ## 10. 流程图
 ### 10.1 报告中心流程
@@ -195,7 +213,10 @@ sequenceDiagram
 2. HTML 模板可作为高级模式编辑
 3. 支持列表渲染（检验结果）
 4. 支持条件渲染（字段与异常标记）
-5. 支持条码/二维码
+5. 结果表支持 dataPath 切换（多结果数组）
+6. 结果卡片支持结构化数组渲染（摘要卡片）
+7. 图片组件支持字段路径或 URL
+8. 支持条码/二维码
 
 ## 13. 打印与 PDF
 1. 预览使用浏览器渲染

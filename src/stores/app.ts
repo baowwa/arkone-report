@@ -132,6 +132,15 @@ function normalizeBlock(block: any): TemplateBlock {
   }
   if (normalized.type === 'results') {
     normalized.columns = Array.isArray(normalized.columns) ? normalized.columns : []
+    if (!normalized.dataPath) normalized.dataPath = 'results'
+  }
+  if (normalized.type === 'cards') {
+    normalized.columns = Number(normalized.columns || 3)
+    if (!normalized.dataPath) normalized.dataPath = 'summaryCards'
+  }
+  if (normalized.type === 'image') {
+    if (!normalized.srcPath) normalized.srcPath = 'org.logo'
+    if (!normalized.alt) normalized.alt = '图片'
   }
   return normalized as TemplateBlock
 }
@@ -170,6 +179,7 @@ function createBlock(type: TemplateBlock['type']): TemplateBlock {
         id: uid('blk'),
         type: 'results',
         title: '检验结果',
+        dataPath: 'results',
         style: {},
         condition: { type: 'always' },
         columns: [
@@ -179,6 +189,30 @@ function createBlock(type: TemplateBlock['type']): TemplateBlock {
           { id: uid('col'), label: '参考范围', key: 'refRange' },
           { id: uid('col'), label: '提示', key: 'flagLabel' }
         ]
+      }
+    case 'cards':
+      return {
+        id: uid('blk'),
+        type: 'cards',
+        title: '结果综述',
+        dataPath: 'summaryCards',
+        columns: 3,
+        style: {},
+        condition: { type: 'always' }
+      }
+    case 'image':
+      return {
+        id: uid('blk'),
+        type: 'image',
+        title: '图片',
+        srcPath: 'org.logo',
+        alt: '图片',
+        width: '120px',
+        height: '120px',
+        radius: '8px',
+        caption: '',
+        style: {},
+        condition: { type: 'always' }
       }
     case 'text':
       return {
@@ -301,22 +335,89 @@ export const useAppStore = defineStore('app', {
       reportA.patient.name = '张三'
       reportA.patient.gender = '男'
       reportA.patient.age = '32'
-      reportA.order.reportNo = 'RPT-20260206-001'
+      reportA.order.reportNo = 'TB-20260206-001'
       reportA.order.reportTime = '2026-02-06 10:12'
+      reportA.order.sampleTime = '2026-02-06 08:40'
+      reportA.order.specimenType = '痰液'
+      reportA.order.method = '涂片镜检'
+      reportA.order.recheck = '未复检'
       reportA.results = [
-        { itemName: '白细胞计数', value: '12.2', unit: '10^9/L', refRange: '4.0-10.0', flag: 'H' },
-        { itemName: '血红蛋白', value: '106', unit: 'g/L', refRange: '120-160', flag: 'L' }
+        { itemName: '结核菌涂片', value: '阴性', unit: '', refRange: '阴性', flag: '' },
+        { itemName: '结核分枝杆菌 DNA', value: '未检出', unit: '', refRange: '未检出', flag: '' }
+      ]
+      reportA.summaryCards = [
+        {
+          title: '结核分枝杆菌',
+          value: '结核分枝杆菌复合群',
+          tone: 'rose',
+          iconKey: 'microbe'
+        },
+        {
+          title: '非结核分枝杆菌',
+          value: '未检出',
+          tone: 'teal',
+          iconKey: 'bacteria'
+        },
+        {
+          title: '其他特殊病原体',
+          value: '金黄色葡萄球菌',
+          tone: 'amber',
+          iconKey: 'virus'
+        }
+      ]
+      reportA.resistanceResults = [
+        {
+          category: '结核分枝杆菌复合群',
+          name: '结核分枝杆菌复合群',
+          latinName: 'Mycobacterium tuberculosis complex',
+          resistantDrug: '异烟肼, 利福平, 乙胺丁醇, 利福喷丁'
+        }
       ]
 
       const reportB = deepClone(base)
       reportB.patient.name = '李四'
       reportB.patient.gender = '女'
       reportB.patient.age = '45'
-      reportB.order.reportNo = 'RPT-20260206-002'
+      reportB.order.reportNo = 'HIV-20260206-002'
       reportB.order.reportTime = '2026-02-06 11:08'
+      reportB.order.sampleTime = '2026-02-06 09:10'
+      reportB.order.testDate = '2025-01-05'
+      reportB.order.subtype = 'B'
+      reportB.order.coverage = 'PR:1-99, RT:1-560, IN:1-288'
+      reportB.order.method = 'ELISA'
+      reportB.order.analysisSystem = 'HIVDB 9.8 (2025-01-05)'
+      reportB.order.threshold = '0.05'
+      reportB.order.mutationCount = '0'
+      reportB.order.recheck = '未复检'
       reportB.results = [
-        { itemName: '血小板', value: '236', unit: '10^9/L', refRange: '100-300', flag: '' },
-        { itemName: '血红蛋白', value: '128', unit: 'g/L', refRange: '120-160', flag: '' }
+        { itemName: 'HIV 抗体', value: '阴性', unit: '', refRange: '阴性', flag: '' },
+        { itemName: 'HIV 核酸', value: '未检出', unit: '', refRange: '未检出', flag: '' }
+      ]
+      reportB.hivResistanceResults = [
+        {
+          geneRegion: '蛋白酶区 (PR)',
+          mutation: '主要突变: 无; 次要突变: 无',
+          drug: '阿扎那韦 (ATV)',
+          level: '0 - 敏感'
+        },
+        { geneRegion: '', mutation: '', drug: '达芦那韦 (DRV)', level: '0 - 敏感' },
+        { geneRegion: '', mutation: '', drug: '洛匹那韦 (LPV)', level: '0 - 敏感' },
+        { geneRegion: '', mutation: '', drug: '依非韦伦 (EFV)', level: '0 - 敏感' },
+        { geneRegion: '', mutation: '', drug: '奈韦拉平 (NVP)', level: '0 - 敏感' },
+        {
+          geneRegion: '逆转录酶区 (RT)',
+          mutation: 'NRTI相关突变: 无',
+          drug: '齐多夫定 (AZT)',
+          level: '0 - 敏感'
+        },
+        { geneRegion: '', mutation: '', drug: '替诺福韦 (TDF)', level: '0 - 敏感' },
+        {
+          geneRegion: '整合酶区 (IN)',
+          mutation: 'INSTI相关主要突变: 无',
+          drug: '多替拉韦 (DTG)',
+          level: '0 - 敏感'
+        },
+        { geneRegion: '', mutation: '', drug: '比克替拉韦 (BIC)', level: '0 - 敏感' }
       ]
 
       const reportC = deepClone(base)
@@ -325,8 +426,10 @@ export const useAppStore = defineStore('app', {
       reportC.patient.age = '57'
       reportC.order.reportNo = 'RPT-20260206-003'
       reportC.order.reportTime = '2026-02-06 12:30'
+      reportC.order.sampleTime = '2026-02-06 10:20'
       reportC.results = [
         { itemName: '白细胞计数', value: '7.2', unit: '10^9/L', refRange: '4.0-10.0', flag: '' },
+        { itemName: '血红蛋白', value: '136', unit: 'g/L', refRange: '120-160', flag: '' },
         { itemName: '血小板', value: '190', unit: '10^9/L', refRange: '100-300', flag: '' }
       ]
 
@@ -337,7 +440,7 @@ export const useAppStore = defineStore('app', {
           patientName: reportA.patient.name,
           reportTime: reportA.order.reportTime,
           templateId: this.templates[0]?.id || defaultTemplate.id,
-          templateName: this.templates[0]?.name || '标准检验报告',
+          templateName: this.templates[0]?.name || '结核报告模板',
           auditStatus: 'approved',
           sendStatus: 'sent',
           data: reportA
@@ -348,7 +451,7 @@ export const useAppStore = defineStore('app', {
           patientName: reportB.patient.name,
           reportTime: reportB.order.reportTime,
           templateId: this.templates[1]?.id || defaultTemplate.id,
-          templateName: this.templates[1]?.name || '紧凑版报告',
+          templateName: this.templates[1]?.name || 'HIV 报告模板',
           auditStatus: 'pending',
           sendStatus: 'pending',
           data: reportB
@@ -359,7 +462,7 @@ export const useAppStore = defineStore('app', {
           patientName: reportC.patient.name,
           reportTime: reportC.order.reportTime,
           templateId: this.templates[2]?.id || defaultTemplate.id,
-          templateName: this.templates[2]?.name || '清爽版报告',
+          templateName: this.templates[2]?.name || '常规检验报告模板',
           auditStatus: 'rejected',
           sendStatus: 'failed',
           data: reportC
@@ -394,6 +497,9 @@ export const useAppStore = defineStore('app', {
         this.templates = Array.isArray(data.templates)
           ? data.templates.map((item: any) => normalizeTemplate(item))
           : this.templates
+        const presetIds = new Set(TEMPLATE_PRESETS.map((item) => item.id))
+        const customTemplates = this.templates.filter((item) => !presetIds.has(item.id))
+        this.templates = [...TEMPLATE_PRESETS.map((item) => deepClone(item)), ...customTemplates]
         this.reports = Array.isArray(data.reports)
           ? data.reports.map((item: any) =>
               normalizeReport(

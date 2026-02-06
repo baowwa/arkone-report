@@ -151,13 +151,27 @@ const templateHtml = computed(() =>
 const renderedHtml = computed(() => Mustache.render(templateHtml.value, preparedData.value))
 const sanitizedHtml = computed(() =>
   DOMPurify.sanitize(renderedHtml.value, {
-    ADD_TAGS: ['svg', 'path', 'g', 'rect', 'line', 'polyline', 'text', 'image'],
+    ADD_TAGS: [
+      'svg',
+      'path',
+      'g',
+      'rect',
+      'line',
+      'polyline',
+      'text',
+      'image',
+      'circle',
+      'ellipse',
+      'img'
+    ],
     ADD_ATTR: [
       'id',
       'class',
       'style',
       'data-barcode',
       'data-qr',
+      'src',
+      'alt',
       'd',
       'x',
       'y',
@@ -166,6 +180,13 @@ const sanitizedHtml = computed(() =>
       'fill',
       'stroke',
       'stroke-width',
+      'stroke-linecap',
+      'stroke-linejoin',
+      'cx',
+      'cy',
+      'r',
+      'rx',
+      'ry',
       'viewBox',
       'xmlns',
       'preserveAspectRatio'

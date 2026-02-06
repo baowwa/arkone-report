@@ -13,13 +13,13 @@
         text-color="#e6f2f1"
         active-text-color="#f7faf9"
       >
-        <el-menu-item index="/reports">
-          <el-icon><Document /></el-icon>
-          <span>报告中心</span>
-        </el-menu-item>
         <el-menu-item index="/templates">
           <el-icon><Tickets /></el-icon>
           <span>模板中心</span>
+        </el-menu-item>
+        <el-menu-item index="/reports">
+          <el-icon><Document /></el-icon>
+          <span>报告中心</span>
         </el-menu-item>
         <el-menu-item index="/ingest">
           <el-icon><Connection /></el-icon>

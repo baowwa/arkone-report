@@ -2,6 +2,8 @@ export type TemplateBlockType =
   | 'header'
   | 'info'
   | 'results'
+  | 'cards'
+  | 'image'
   | 'text'
   | 'code'
   | 'footer'
@@ -13,6 +15,8 @@ export type BlockStyle = {
   marginBottom?: string
   background?: string
   border?: string
+  borderBottom?: string
+  borderRadius?: string
 }
 
 export type BlockCondition =
@@ -52,6 +56,25 @@ export type ResultColumn = {
 export type TemplateBlockResults = TemplateBlockBase & {
   type: 'results'
   columns: ResultColumn[]
+  dataPath?: string
+}
+
+export type TemplateBlockCards = TemplateBlockBase & {
+  type: 'cards'
+  title: string
+  dataPath?: string
+  columns?: number
+}
+
+export type TemplateBlockImage = TemplateBlockBase & {
+  type: 'image'
+  title?: string
+  srcPath: string
+  alt?: string
+  width?: string
+  height?: string
+  radius?: string
+  caption?: string
 }
 
 export type TemplateBlockText = TemplateBlockBase & {
@@ -82,6 +105,8 @@ export type TemplateBlockFooter = TemplateBlockBase & {
 export type TemplateBlock =
   | TemplateBlockInfo
   | TemplateBlockResults
+  | TemplateBlockCards
+  | TemplateBlockImage
   | TemplateBlockText
   | TemplateBlockHeader
   | TemplateBlockCode

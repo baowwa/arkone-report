@@ -22,6 +22,8 @@ function styleToString(style?: BlockStyle) {
   if (style.marginBottom) rules.push(`margin-bottom:${escapeHtml(style.marginBottom)}`)
   if (style.background) rules.push(`background:${escapeHtml(style.background)}`)
   if (style.border) rules.push(`border:${escapeHtml(style.border)}`)
+  if (style.borderBottom) rules.push(`border-bottom:${escapeHtml(style.borderBottom)}`)
+  if (style.borderRadius) rules.push(`border-radius:${escapeHtml(style.borderRadius)}`)
   return rules.length ? ` style="${rules.join(';')}"` : ''
 }
 
@@ -94,6 +96,7 @@ function renderResultsBlock(block: TemplateBlock) {
   if (block.type !== 'results') return ''
   const title = escapeHtml(block.title || '检验结果')
   const style = styleToString(block.style)
+  const dataPath = block.dataPath || 'results'
   const headers = block.columns
     .map((column) => {
       const inline: string[] = []
@@ -121,13 +124,77 @@ function renderResultsBlock(block: TemplateBlock) {
         <tr>${headers}</tr>
       </thead>
       <tbody>
-        {{#results}}
+        {{#${dataPath}}}
         <tr class="{{flagClass}}">
           ${body}
         </tr>
-        {{/results}}
+        {{/${dataPath}}}
       </tbody>
     </table>
+  </section>
+  `
+}
+
+function renderCardsBlock(block: TemplateBlock) {
+  if (block.type !== 'cards') return ''
+  const title = escapeHtml(block.title || '结果综述')
+  const style = styleToString(block.style)
+  const columns = Math.max(1, Math.min(block.columns || 3, 4))
+  const dataPath = block.dataPath || 'summaryCards'
+  return `
+  <section class="report-section"${style}>
+    <div class="section-title">${title}</div>
+    <div class="report-cards" style="grid-template-columns: repeat(${columns}, minmax(0, 1fr));">
+      {{#${dataPath}}}
+      <div class="report-card" style="background: {{bgColor}}; border-color: {{borderColor}};">
+        <div class="report-card-icon">
+          {{#iconUrl}}
+            <img src="{{iconUrl}}" alt="{{iconAlt}}" />
+          {{/iconUrl}}
+          {{^iconUrl}}
+            {{{iconSvg}}}
+          {{/iconUrl}}
+        </div>
+        <div class="report-card-label">{{title}}</div>
+        <div class="report-card-value">{{value}}</div>
+      </div>
+      {{/${dataPath}}}
+    </div>
+  </section>
+  `
+}
+
+function isLikelyUrl(value: string) {
+  return /^https?:\/\//i.test(value) || /^data:/i.test(value) || value.startsWith('/')
+}
+
+function renderImageBlock(block: TemplateBlock) {
+  if (block.type !== 'image') return ''
+  const title = escapeHtml(block.title || '')
+  const style = styleToString(block.style)
+  const srcPath = block.srcPath?.trim() || ''
+  const srcValue = srcPath
+    ? isLikelyUrl(srcPath)
+      ? escapeHtml(srcPath)
+      : `{{${srcPath}}}`
+    : ''
+  const alt = escapeHtml(block.alt || '图片')
+  const width = block.width ? `width:${escapeHtml(block.width)}` : ''
+  const height = block.height ? `height:${escapeHtml(block.height)}` : ''
+  const radius = block.radius ? `border-radius:${escapeHtml(block.radius)}` : ''
+  const imgStyle = [width, height, radius].filter(Boolean).join(';')
+  const caption = block.caption ? `<div class="report-image-caption">${escapeHtml(block.caption)}</div>` : ''
+  return `
+  <section class="report-section"${style}>
+    ${title ? `<div class="section-title">${title}</div>` : ''}
+    <div class="report-image">
+      ${
+        srcValue
+          ? `<img src="${srcValue}" alt="${alt}"${imgStyle ? ` style="${imgStyle}"` : ''} />`
+          : `<div class="report-image-placeholder">暂无图片</div>`
+      }
+      ${caption}
+    </div>
   </section>
   `
 }
@@ -184,6 +251,10 @@ export function buildTemplateHtml(blocks: TemplateBlock[], data?: any) {
           return renderInfoBlock(block)
         case 'results':
           return renderResultsBlock(block)
+        case 'cards':
+          return renderCardsBlock(block)
+        case 'image':
+          return renderImageBlock(block)
         case 'text':
           return renderTextBlock(block)
         case 'code':

@@ -122,7 +122,7 @@
                       </thead>
                       <tbody>
                         <tr
-                          v-for="(row, index) in preparedData.results"
+                          v-for="(row, index) in getResultsData(block)"
                           :key="index"
                           :class="row.flagClass"
                         >
@@ -132,6 +132,48 @@
                         </tr>
                       </tbody>
                     </table>
+                  </section>
+                </template>
+
+                <template v-else-if="block.type === 'cards'">
+                  <section class="report-section" :style="blockStyle(block)">
+                    <div class="section-title">{{ block.title }}</div>
+                    <div
+                      class="report-cards"
+                      :style="{
+                        gridTemplateColumns: `repeat(${block.columns || 3}, minmax(0, 1fr))`
+                      }"
+                    >
+                      <div
+                        v-for="(card, index) in getCardsData(block)"
+                        :key="index"
+                        class="report-card"
+                        :style="{ background: card.bgColor, borderColor: card.borderColor }"
+                      >
+                        <div class="report-card-icon">
+                          <img v-if="card.iconUrl" :src="card.iconUrl" :alt="card.iconAlt || '图标'" />
+                          <div v-else v-html="card.iconSvg"></div>
+                        </div>
+                        <div class="report-card-label">{{ card.title }}</div>
+                        <div class="report-card-value">{{ card.value }}</div>
+                      </div>
+                    </div>
+                  </section>
+                </template>
+
+                <template v-else-if="block.type === 'image'">
+                  <section class="report-section" :style="blockStyle(block)">
+                    <div v-if="block.title" class="section-title">{{ block.title }}</div>
+                    <div class="report-image">
+                      <img
+                        v-if="resolveImageSrc(block)"
+                        :src="resolveImageSrc(block)"
+                        :alt="block.alt || '图片'"
+                        :style="imageStyle(block)"
+                      />
+                      <div v-else class="report-image-placeholder">暂无图片</div>
+                      <div v-if="block.caption" class="report-image-caption">{{ block.caption }}</div>
+                    </div>
                   </section>
                 </template>
 
@@ -218,6 +260,16 @@
                   </template>
 
                   <template v-else-if="selectedBlock.type === 'results'">
+                    <el-form-item label="数据源">
+                      <el-select v-model="selectedBlock.dataPath" placeholder="选择数据源">
+                        <el-option
+                          v-for="option in resultDataOptions"
+                          :key="option.value"
+                          :label="option.label"
+                          :value="option.value"
+                        />
+                      </el-select>
+                    </el-form-item>
                     <div class="field-title">表头配置</div>
                     <div
                       v-for="column in selectedBlock.columns"
@@ -241,6 +293,60 @@
                       <el-button type="danger" link @click="removeResultColumn(column.id)">删除</el-button>
                     </div>
                     <el-button size="small" @click="addResultColumn">新增列</el-button>
+                  </template>
+
+                  <template v-else-if="selectedBlock.type === 'cards'">
+                    <el-form-item label="数据源">
+                      <el-select v-model="selectedBlock.dataPath" placeholder="选择数据源">
+                        <el-option
+                          v-for="option in cardDataOptions"
+                          :key="option.value"
+                          :label="option.label"
+                          :value="option.value"
+                        />
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item label="列数">
+                      <el-radio-group v-model="selectedBlock.columns">
+                        <el-radio-button :label="2">2</el-radio-button>
+                        <el-radio-button :label="3">3</el-radio-button>
+                        <el-radio-button :label="4">4</el-radio-button>
+                      </el-radio-group>
+                    </el-form-item>
+                  </template>
+
+                  <template v-else-if="selectedBlock.type === 'image'">
+                    <el-form-item label="图片字段">
+                      <el-select
+                        v-model="selectedBlock.srcPath"
+                        filterable
+                        allow-create
+                        default-first-option
+                        placeholder="选择或输入图片字段路径"
+                      >
+                        <el-option
+                          v-for="option in fieldOptions"
+                          :key="option.value"
+                          :label="option.label"
+                          :value="option.value"
+                        />
+                      </el-select>
+                    </el-form-item>
+                    <el-form-item label="替代文本">
+                      <el-input v-model="selectedBlock.alt" />
+                    </el-form-item>
+                    <el-form-item label="宽度">
+                      <el-input v-model="selectedBlock.width" placeholder="例如 120px 或 60%" />
+                    </el-form-item>
+                    <el-form-item label="高度">
+                      <el-input v-model="selectedBlock.height" placeholder="例如 120px" />
+                    </el-form-item>
+                    <el-form-item label="圆角">
+                      <el-input v-model="selectedBlock.radius" placeholder="例如 8px 或 50%" />
+                    </el-form-item>
+                    <el-form-item label="说明文字">
+                      <el-input v-model="selectedBlock.caption" />
+                    </el-form-item>
                   </template>
 
                   <template v-else-if="selectedBlock.type === 'text'">
@@ -468,6 +574,8 @@ const componentLibrary = [
   { type: 'header', label: '页眉', desc: '机构信息 + 标题 + 条码', single: true },
   { type: 'info', label: '信息块', desc: '字段网格展示' },
   { type: 'results', label: '结果表格', desc: '动态行结果' },
+  { type: 'cards', label: '结果卡片', desc: '图文综述卡片' },
+  { type: 'image', label: '图片', desc: '单张图片展示' },
   { type: 'text', label: '文本说明', desc: '补充说明与声明' },
   { type: 'code', label: '条码/二维码', desc: '单独的条码区' },
   { type: 'footer', label: '页脚', desc: '时间与提示', single: true }
@@ -479,8 +587,24 @@ const resultColumnOptions = [
   { key: 'unit', label: '单位' },
   { key: 'refRange', label: '参考范围' },
   { key: 'flagLabel', label: '结果提示' },
-  { key: 'flag', label: '异常标记' }
+  { key: 'flag', label: '异常标记' },
+  { key: 'category', label: '分类' },
+  { key: 'name', label: '中文名' },
+  { key: 'latinName', label: '拉丁文名' },
+  { key: 'resistantDrug', label: '疑似耐药药物' },
+  { key: 'geneRegion', label: '基因区' },
+  { key: 'mutation', label: '相关突变' },
+  { key: 'drug', label: '抗病毒药物' },
+  { key: 'level', label: '耐药程度' }
 ]
+
+const resultDataOptions = [
+  { value: 'results', label: '检验结果' },
+  { value: 'resistanceResults', label: '耐药结果' },
+  { value: 'hivResistanceResults', label: 'HIV 耐药结果' }
+]
+
+const cardDataOptions = [{ value: 'summaryCards', label: '检测结果卡片' }]
 
 const conditionTypeOptions = [
   { value: 'always', label: '始终显示' },
@@ -538,13 +662,27 @@ const flagOptions = computed(() =>
 const renderedHtml = computed(() => Mustache.render(templateHtml.value, preparedData.value))
 const sanitizedHtml = computed(() =>
   DOMPurify.sanitize(renderedHtml.value, {
-    ADD_TAGS: ['svg', 'path', 'g', 'rect', 'line', 'polyline', 'text', 'image'],
+    ADD_TAGS: [
+      'svg',
+      'path',
+      'g',
+      'rect',
+      'line',
+      'polyline',
+      'text',
+      'image',
+      'circle',
+      'ellipse',
+      'img'
+    ],
     ADD_ATTR: [
       'id',
       'class',
       'style',
       'data-barcode',
       'data-qr',
+      'src',
+      'alt',
       'd',
       'x',
       'y',
@@ -553,6 +691,13 @@ const sanitizedHtml = computed(() =>
       'fill',
       'stroke',
       'stroke-width',
+      'stroke-linecap',
+      'stroke-linejoin',
+      'cx',
+      'cy',
+      'r',
+      'rx',
+      'ry',
       'viewBox',
       'xmlns',
       'preserveAspectRatio'
@@ -574,6 +719,10 @@ watch(
     if (!block) return
     if (!block.style) block.style = {}
     if (!block.condition) block.condition = { type: 'always' }
+    if (block.type === 'results' && !block.dataPath) block.dataPath = 'results'
+    if (block.type === 'cards' && !block.dataPath) block.dataPath = 'summaryCards'
+    if (block.type === 'cards' && !block.columns) block.columns = 3
+    if (block.type === 'image' && !block.srcPath) block.srcPath = 'org.logo'
   },
   { immediate: true }
 )
@@ -729,6 +878,40 @@ const getFieldValue = (path: string) => {
   return value ?? ''
 }
 
+const getResultsData = (block: TemplateBlock) => {
+  if (block.type !== 'results') return []
+  const path = block.dataPath || 'results'
+  const data = getValueByPath(preparedData.value, path)
+  return Array.isArray(data) ? data : []
+}
+
+const getCardsData = (block: TemplateBlock) => {
+  if (block.type !== 'cards') return []
+  const path = block.dataPath || 'summaryCards'
+  const data = getValueByPath(preparedData.value, path)
+  return Array.isArray(data) ? data : []
+}
+
+const resolveImageSrc = (block: TemplateBlock) => {
+  if (block.type !== 'image') return ''
+  const srcPath = block.srcPath?.trim()
+  if (!srcPath) return ''
+  if (srcPath.startsWith('http') || srcPath.startsWith('data:') || srcPath.startsWith('/')) {
+    return srcPath
+  }
+  const value = getValueByPath(preparedData.value, srcPath)
+  return typeof value === 'string' ? value : ''
+}
+
+const imageStyle = (block: TemplateBlock) => {
+  if (block.type !== 'image') return {}
+  const style: Record<string, string> = {}
+  if (block.width) style.width = block.width
+  if (block.height) style.height = block.height
+  if (block.radius) style.borderRadius = block.radius
+  return style
+}
+
 const addInfoField = () => {
   if (!selectedBlock.value || selectedBlock.value.type !== 'info') return
   selectedBlock.value.fields.push({
@@ -758,7 +941,7 @@ const removeResultColumn = (id: string) => {
 }
 
 const hasTitle = (block: TemplateBlock) => {
-  return ['header', 'info', 'results', 'text', 'code', 'footer'].includes(block.type)
+  return ['header', 'info', 'results', 'cards', 'image', 'text', 'code', 'footer'].includes(block.type)
 }
 
 const hasBlockType = (type: TemplateBlock['type']) => {
@@ -774,6 +957,8 @@ const blockStyle = (block: TemplateBlock) => {
   if (style.marginBottom) output.marginBottom = style.marginBottom
   if (style.background) output.background = style.background
   if (style.border) output.border = style.border
+  if (style.borderBottom) output.borderBottom = style.borderBottom
+  if (style.borderRadius) output.borderRadius = style.borderRadius
   return output
 }
 
@@ -789,6 +974,8 @@ const blockLabel = (block: TemplateBlock) => {
     header: '页眉',
     info: '信息块',
     results: '结果表',
+    cards: '结果卡片',
+    image: '图片',
     text: '文本说明',
     code: '条码/二维码',
     footer: '页脚'
@@ -819,6 +1006,27 @@ const diffBlock = (current: TemplateBlock, other: TemplateBlock) => {
         return {
           title: block.title,
           columns: block.columns,
+          dataPath: block.dataPath,
+          style: block.style,
+          condition: block.condition
+        }
+      case 'cards':
+        return {
+          title: block.title,
+          dataPath: block.dataPath,
+          columns: block.columns,
+          style: block.style,
+          condition: block.condition
+        }
+      case 'image':
+        return {
+          title: block.title,
+          srcPath: block.srcPath,
+          alt: block.alt,
+          width: block.width,
+          height: block.height,
+          radius: block.radius,
+          caption: block.caption,
           style: block.style,
           condition: block.condition
         }

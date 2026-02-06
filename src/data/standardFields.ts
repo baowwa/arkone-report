@@ -9,13 +9,20 @@ export const STANDARD_FIELDS = [
   { label: '采样时间', path: 'order.sampleTime', group: '订单' },
   { label: '报告时间', path: 'order.reportTime', group: '订单' },
   { label: '检验科室', path: 'order.department', group: '订单' },
+  { label: '检测日期', path: 'order.testDate', group: '订单' },
+  { label: '样本亚型', path: 'order.subtype', group: '订单' },
+  { label: '覆盖区域', path: 'order.coverage', group: '订单' },
+  { label: '解析系统', path: 'order.analysisSystem', group: '订单' },
+  { label: '检测阈值', path: 'order.threshold', group: '订单' },
+  { label: '突变数', path: 'order.mutationCount', group: '订单' },
   { label: '申请医生', path: 'doctor.name', group: '医护' },
   { label: '审核医生', path: 'doctor.auditor', group: '医护' },
   { label: '来源实验室', path: 'source.labName', group: '来源' },
   { label: '来源系统', path: 'source.system', group: '来源' },
   { label: '机构名称', path: 'org.name', group: '机构' },
   { label: '机构地址', path: 'org.address', group: '机构' },
-  { label: '机构电话', path: 'org.phone', group: '机构' }
+  { label: '机构电话', path: 'org.phone', group: '机构' },
+  { label: '机构Logo', path: 'org.logo', group: '机构' }
 ]
 
 export const RESULT_ITEM_FIELDS = [
