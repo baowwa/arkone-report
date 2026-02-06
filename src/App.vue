@@ -7,7 +7,7 @@
       </div>
       <el-menu
         router
-        :default-active="route.path"
+        :default-active="activeMenu"
         class="menu"
         background-color="transparent"
         text-color="#e6f2f1"
@@ -63,6 +63,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Document,
@@ -74,6 +75,10 @@ import {
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
+const activeMenu = computed(() => {
+  if (route.path.startsWith('/templates')) return '/templates'
+  return route.path
+})
 </script>
 
 <style scoped>

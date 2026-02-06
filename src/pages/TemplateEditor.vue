@@ -1,9 +1,10 @@
 <template>
   <div class="templates-page">
     <PageHeader
-      title="模板中心"
+      title="模板设计"
       subtitle="结构化拖拽与属性面板协作，确保模板可控且可扩展。"
     >
+      <el-button @click="goList">返回列表</el-button>
       <el-select v-model="activeTemplateId" style="width: 220px">
         <el-option
           v-for="item in store.templates"
@@ -12,9 +13,6 @@
           :value="item.id"
         />
       </el-select>
-      <el-button type="primary" @click="store.addTemplate">新建模板</el-button>
-      <el-button @click="handleDuplicate">复制模板</el-button>
-      <el-button type="danger" plain @click="handleRemove">删除模板</el-button>
     </PageHeader>
 
     <el-row :gutter="20">
@@ -26,6 +24,7 @@
               v-for="item in componentLibrary"
               :key="item.type"
               class="library-item"
+              :class="{ disabled: item.single && hasBlockType(item.type) }"
               draggable="true"
               @dragstart="handleLibraryDrag(item.type)"
               @click="addBlock(item.type)"
@@ -227,7 +226,12 @@
                     >
                       <el-input v-model="column.label" placeholder="表头名称" />
                       <el-select v-model="column.key" placeholder="字段">
-                        <el-option v-for="item in resultColumnOptions" :key="item.key" :label="item.label" :value="item.key" />
+                        <el-option
+                          v-for="item in resultColumnOptions"
+                          :key="item.key"
+                          :label="item.label"
+                          :value="item.key"
+                        />
                       </el-select>
                       <el-select v-model="column.align" placeholder="对齐">
                         <el-option label="左对齐" value="left" />
@@ -437,6 +441,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import DOMPurify from 'dompurify'
 import Mustache from 'mustache'
 import JsBarcode from 'jsbarcode'
@@ -450,20 +455,22 @@ import { STANDARD_FIELDS } from '@/data/standardFields'
 import type { TemplateBlock, TemplateMode } from '@/types/template'
 
 const store = useAppStore()
+const route = useRoute()
+const router = useRouter()
 const canvasRef = ref<HTMLElement | null>(null)
 const activeTab = ref('props')
-const compareTemplateId = ref('')
 const selectedBlockId = ref<string>('')
 const draggingId = ref<string>('')
 const dragOverId = ref<string>('')
+const compareTemplateId = ref('')
 
 const componentLibrary = [
-  { type: 'header', label: '页眉', desc: '机构信息 + 标题 + 条码' },
+  { type: 'header', label: '页眉', desc: '机构信息 + 标题 + 条码', single: true },
   { type: 'info', label: '信息块', desc: '字段网格展示' },
   { type: 'results', label: '结果表格', desc: '动态行结果' },
   { type: 'text', label: '文本说明', desc: '补充说明与声明' },
   { type: 'code', label: '条码/二维码', desc: '单独的条码区' },
-  { type: 'footer', label: '页脚', desc: '时间与提示' }
+  { type: 'footer', label: '页脚', desc: '时间与提示', single: true }
 ] as const
 
 const resultColumnOptions = [
@@ -488,7 +495,10 @@ const fieldOptions = STANDARD_FIELDS.map((item) => ({
 
 const activeTemplateId = computed({
   get: () => store.activeTemplateId,
-  set: (value: string) => store.setActiveTemplate(value)
+  set: (value: string) => {
+    store.setActiveTemplate(value)
+    router.replace(`/templates/${value}`)
+  }
 })
 
 const templateMode = computed({
@@ -524,55 +534,6 @@ const flagOptions = computed(() =>
     label: `${flag.label} (${flag.code})`
   }))
 )
-
-const compareOptions = computed(() =>
-  store.templates.filter((item) => item.id !== store.activeTemplateId)
-)
-
-const compareTemplate = computed(() =>
-  store.templates.find((item) => item.id === compareTemplateId.value)
-)
-
-const diffSummary = computed(() => {
-  if (!store.activeTemplate || !compareTemplate.value) {
-    return {
-      added: [],
-      removed: [],
-      modified: [],
-      metaChanges: [],
-      htmlChanged: false
-    }
-  }
-  const current = store.activeTemplate
-  const other = compareTemplate.value
-  const mapOther = new Map(other.blocks.map((block) => [block.id, block]))
-  const mapCurrent = new Map(current.blocks.map((block) => [block.id, block]))
-
-  const added = current.blocks.filter((block) => !mapOther.has(block.id))
-  const removed = other.blocks.filter((block) => !mapCurrent.has(block.id))
-  const modified = current.blocks
-    .map((block) => {
-      const otherBlock = mapOther.get(block.id)
-      if (!otherBlock) return null
-      const changes = diffBlock(block, otherBlock)
-      if (!changes.length) return null
-      return { block, changes }
-    })
-    .filter(Boolean) as { block: TemplateBlock; changes: string[] }[]
-
-  const metaChanges: string[] = []
-  if (current.name !== other.name) metaChanges.push('模板名称')
-  if (current.version !== other.version) metaChanges.push('版本号')
-  if (current.description !== other.description) metaChanges.push('描述')
-
-  return {
-    added,
-    removed,
-    modified,
-    metaChanges,
-    htmlChanged: current.html !== other.html
-  }
-})
 
 const renderedHtml = computed(() => Mustache.render(templateHtml.value, preparedData.value))
 const sanitizedHtml = computed(() =>
@@ -630,11 +591,63 @@ watch(
   }
 )
 
+const compareOptions = computed(() =>
+  store.templates.filter((item) => item.id !== store.activeTemplateId)
+)
+
+const compareTemplate = computed(() =>
+  store.templates.find((item) => item.id === compareTemplateId.value)
+)
+
+const diffSummary = computed(() => {
+  if (!store.activeTemplate || !compareTemplate.value) {
+    return {
+      added: [],
+      removed: [],
+      modified: [],
+      metaChanges: [],
+      htmlChanged: false
+    }
+  }
+  const current = store.activeTemplate
+  const other = compareTemplate.value
+  const mapOther = new Map(other.blocks.map((block) => [block.id, block]))
+  const mapCurrent = new Map(current.blocks.map((block) => [block.id, block]))
+
+  const added = current.blocks.filter((block) => !mapOther.has(block.id))
+  const removed = other.blocks.filter((block) => !mapCurrent.has(block.id))
+  const modified = current.blocks
+    .map((block) => {
+      const otherBlock = mapOther.get(block.id)
+      if (!otherBlock) return null
+      const changes = diffBlock(block, otherBlock)
+      if (!changes.length) return null
+      return { block, changes }
+    })
+    .filter(Boolean) as { block: TemplateBlock; changes: string[] }[]
+
+  const metaChanges: string[] = []
+  if (current.name !== other.name) metaChanges.push('模板名称')
+  if (current.version !== other.version) metaChanges.push('版本号')
+  if (current.description !== other.description) metaChanges.push('描述')
+
+  return {
+    added,
+    removed,
+    modified,
+    metaChanges,
+    htmlChanged: current.html !== other.html
+  }
+})
+
 const selectBlock = (id: string) => {
   selectedBlockId.value = id
 }
 
 const addBlock = (type: TemplateBlock['type']) => {
+  if ((type === 'header' || type === 'footer') && hasBlockType(type)) {
+    return
+  }
   const id = store.addBlock(store.activeTemplateId, type)
   if (id) {
     selectedBlockId.value = id
@@ -648,21 +661,20 @@ const removeBlock = () => {
   selectedBlockId.value = store.activeTemplate?.blocks[0]?.id || ''
 }
 
-const handleDuplicate = () => {
-  store.duplicateTemplate(store.activeTemplateId)
-}
-
-const handleRemove = () => {
-  store.removeTemplate(store.activeTemplateId)
-}
-
 const syncHtmlFromBlocks = () => {
   if (!store.activeTemplate) return
-  const html = buildTemplateHtml(store.activeTemplate.blocks)
+  const html = buildTemplateHtml(store.activeTemplate.blocks, preparedData.value)
   store.updateTemplateHtml(store.activeTemplateId, html)
 }
 
+const goList = () => {
+  router.push('/templates')
+}
+
 const handleLibraryDrag = (type: TemplateBlock['type']) => {
+  if ((type === 'header' || type === 'footer') && hasBlockType(type)) {
+    return
+  }
   draggingId.value = `LIB:${type}`
 }
 
@@ -678,6 +690,10 @@ const handleDrop = (id: string) => {
   if (!draggingId.value) return
   if (draggingId.value.startsWith('LIB:')) {
     const type = draggingId.value.replace('LIB:', '') as TemplateBlock['type']
+    if ((type === 'header' || type === 'footer') && hasBlockType(type)) {
+      resetDrag()
+      return
+    }
     const index = store.activeTemplate?.blocks.findIndex((block) => block.id === id) ?? -1
     const newId = store.addBlock(store.activeTemplateId, type, index)
     if (newId) selectedBlockId.value = newId
@@ -691,6 +707,10 @@ const handleDropToCanvas = () => {
   if (!draggingId.value) return
   if (draggingId.value.startsWith('LIB:')) {
     const type = draggingId.value.replace('LIB:', '') as TemplateBlock['type']
+    if ((type === 'header' || type === 'footer') && hasBlockType(type)) {
+      resetDrag()
+      return
+    }
     const newId = store.addBlock(store.activeTemplateId, type)
     if (newId) selectedBlockId.value = newId
   } else {
@@ -739,6 +759,10 @@ const removeResultColumn = (id: string) => {
 
 const hasTitle = (block: TemplateBlock) => {
   return ['header', 'info', 'results', 'text', 'code', 'footer'].includes(block.type)
+}
+
+const hasBlockType = (type: TemplateBlock['type']) => {
+  return Boolean(store.activeTemplate?.blocks.some((block) => block.type === type))
 }
 
 const blockStyle = (block: TemplateBlock) => {
@@ -890,6 +914,15 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => route.params.id,
+  (id) => {
+    if (!id || typeof id !== 'string') return
+    store.setActiveTemplate(id)
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
   selectedBlockId.value = store.activeTemplate?.blocks[0]?.id || ''
   renderCodes()
@@ -926,6 +959,12 @@ onMounted(() => {
   background: #f8fafc;
   cursor: grab;
   transition: all 0.2s ease;
+}
+
+.library-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
 }
 
 .library-item:hover {

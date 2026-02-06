@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { defaultStandardData, type StandardReportData } from '@/data/defaultStandardData'
 import { defaultTemplate } from '@/data/defaultTemplate'
+import { TEMPLATE_PRESETS } from '@/data/templatePresets'
 import { sampleRawData } from '@/data/sampleRawData'
 import { getValueByPath, setValueByPath } from '@/utils/path'
 import type { TemplateBlock, TemplateItem, TemplateMode } from '@/types/template'
@@ -28,6 +29,18 @@ export type DictionaryFlag = {
   code: string
   label: string
   level: 'info' | 'warning' | 'critical'
+}
+
+export type ReportItem = {
+  id: string
+  reportNo: string
+  patientName: string
+  reportTime: string
+  templateId: string
+  templateName: string
+  auditStatus: 'pending' | 'approved' | 'rejected'
+  sendStatus: 'pending' | 'sent' | 'failed'
+  data: StandardReportData
 }
 
 const defaultFieldMappings: FieldMapping[] = [
@@ -75,6 +88,33 @@ function normalizeTemplate(template: any): TemplateItem {
     mode: template.mode === 'html' ? 'html' : 'structured',
     html: template.html || defaultTemplate.html,
     blocks
+  }
+}
+
+function normalizeReport(report: any, fallbackTemplateId: string, fallbackTemplateName: string): ReportItem {
+  if (!report || typeof report !== 'object') {
+    return {
+      id: `rpt-${Date.now()}`,
+      reportNo: 'RPT-UNKNOWN',
+      patientName: '未命名',
+      reportTime: '',
+      templateId: fallbackTemplateId,
+      templateName: fallbackTemplateName,
+      auditStatus: 'pending',
+      sendStatus: 'pending',
+      data: deepClone(defaultStandardData)
+    }
+  }
+  return {
+    id: report.id || `rpt-${Date.now()}`,
+    reportNo: report.reportNo || report.data?.order?.reportNo || 'RPT-UNKNOWN',
+    patientName: report.patientName || report.data?.patient?.name || '未命名',
+    reportTime: report.reportTime || report.data?.order?.reportTime || '',
+    templateId: report.templateId || fallbackTemplateId,
+    templateName: report.templateName || fallbackTemplateName,
+    auditStatus: report.auditStatus || 'pending',
+    sendStatus: report.sendStatus || 'pending',
+    data: report.data ? report.data : deepClone(defaultStandardData)
   }
 }
 
@@ -225,7 +265,10 @@ export const useAppStore = defineStore('app', {
     resultArrayPath: 'results',
     resultMappings: deepClone(defaultResultMappings),
     standardData: deepClone(defaultStandardData),
-    templates: [deepClone(defaultTemplate)] as TemplateItem[],
+    reportData: deepClone(defaultStandardData),
+    reports: [] as ReportItem[],
+    activeReportId: '',
+    templates: TEMPLATE_PRESETS.map((item) => deepClone(item)) as TemplateItem[],
     activeTemplateId: defaultTemplate.id,
     orgInfo: {
       name: '示例医院',
@@ -251,9 +294,93 @@ export const useAppStore = defineStore('app', {
     }
   },
   actions: {
+    initReports() {
+      if (this.reports.length) return
+      const base = deepClone(defaultStandardData)
+      const reportA = deepClone(base)
+      reportA.patient.name = '张三'
+      reportA.patient.gender = '男'
+      reportA.patient.age = '32'
+      reportA.order.reportNo = 'RPT-20260206-001'
+      reportA.order.reportTime = '2026-02-06 10:12'
+      reportA.results = [
+        { itemName: '白细胞计数', value: '12.2', unit: '10^9/L', refRange: '4.0-10.0', flag: 'H' },
+        { itemName: '血红蛋白', value: '106', unit: 'g/L', refRange: '120-160', flag: 'L' }
+      ]
+
+      const reportB = deepClone(base)
+      reportB.patient.name = '李四'
+      reportB.patient.gender = '女'
+      reportB.patient.age = '45'
+      reportB.order.reportNo = 'RPT-20260206-002'
+      reportB.order.reportTime = '2026-02-06 11:08'
+      reportB.results = [
+        { itemName: '血小板', value: '236', unit: '10^9/L', refRange: '100-300', flag: '' },
+        { itemName: '血红蛋白', value: '128', unit: 'g/L', refRange: '120-160', flag: '' }
+      ]
+
+      const reportC = deepClone(base)
+      reportC.patient.name = '王五'
+      reportC.patient.gender = '男'
+      reportC.patient.age = '57'
+      reportC.order.reportNo = 'RPT-20260206-003'
+      reportC.order.reportTime = '2026-02-06 12:30'
+      reportC.results = [
+        { itemName: '白细胞计数', value: '7.2', unit: '10^9/L', refRange: '4.0-10.0', flag: '' },
+        { itemName: '血小板', value: '190', unit: '10^9/L', refRange: '100-300', flag: '' }
+      ]
+
+      this.reports = [
+        {
+          id: 'rpt-001',
+          reportNo: reportA.order.reportNo,
+          patientName: reportA.patient.name,
+          reportTime: reportA.order.reportTime,
+          templateId: this.templates[0]?.id || defaultTemplate.id,
+          templateName: this.templates[0]?.name || '标准检验报告',
+          auditStatus: 'approved',
+          sendStatus: 'sent',
+          data: reportA
+        },
+        {
+          id: 'rpt-002',
+          reportNo: reportB.order.reportNo,
+          patientName: reportB.patient.name,
+          reportTime: reportB.order.reportTime,
+          templateId: this.templates[1]?.id || defaultTemplate.id,
+          templateName: this.templates[1]?.name || '紧凑版报告',
+          auditStatus: 'pending',
+          sendStatus: 'pending',
+          data: reportB
+        },
+        {
+          id: 'rpt-003',
+          reportNo: reportC.order.reportNo,
+          patientName: reportC.patient.name,
+          reportTime: reportC.order.reportTime,
+          templateId: this.templates[2]?.id || defaultTemplate.id,
+          templateName: this.templates[2]?.name || '清爽版报告',
+          auditStatus: 'rejected',
+          sendStatus: 'failed',
+          data: reportC
+        }
+      ]
+      this.activeReportId = this.reports[0]?.id || ''
+      this.reportData = deepClone(this.reports[0]?.data || defaultStandardData)
+    },
+    setActiveReport(id: string) {
+      const report = this.reports.find((item) => item.id === id)
+      if (!report) return
+      report.auditStatus = report.auditStatus || 'pending'
+      report.sendStatus = report.sendStatus || 'pending'
+      this.activeReportId = report.id
+      this.reportData = deepClone(report.data)
+      this.activeTemplateId = report.templateId || this.activeTemplateId
+    },
     loadFromStorage() {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) {
+        this.initReports()
         this.parseRawInput()
         this.applyMapping()
         return
@@ -267,12 +394,24 @@ export const useAppStore = defineStore('app', {
         this.templates = Array.isArray(data.templates)
           ? data.templates.map((item: any) => normalizeTemplate(item))
           : this.templates
+        this.reports = Array.isArray(data.reports)
+          ? data.reports.map((item: any) =>
+              normalizeReport(
+                item,
+                this.templates[0]?.id || defaultTemplate.id,
+                this.templates[0]?.name || '标准检验报告'
+              )
+            )
+          : this.reports
+        this.activeReportId = data.activeReportId ?? this.activeReportId
+        if (this.reports.length === 0) this.initReports()
         this.activeTemplateId = data.activeTemplateId ?? this.activeTemplateId
         this.orgInfo = data.orgInfo ?? this.orgInfo
         this.dictionary = data.dictionary ?? this.dictionary
         this.parseRawInput()
         this.applyMapping()
       } catch {
+        this.initReports()
         this.parseRawInput()
         this.applyMapping()
       }
@@ -284,6 +423,8 @@ export const useAppStore = defineStore('app', {
         resultArrayPath: this.resultArrayPath,
         resultMappings: this.resultMappings,
         templates: this.templates,
+        reports: this.reports,
+        activeReportId: this.activeReportId,
         activeTemplateId: this.activeTemplateId,
         orgInfo: this.orgInfo,
         dictionary: this.dictionary
@@ -335,10 +476,11 @@ export const useAppStore = defineStore('app', {
     },
     addTemplate() {
       const id = `tpl-${Date.now()}`
+      const baseVersion = this.templates.length ? `v${this.templates.length + 1}.0` : 'v1.0'
       this.templates.unshift({
         id,
         name: '自定义模板',
-        version: 'v1.0',
+        version: baseVersion,
         description: '新建模板',
         updatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
         mode: 'structured',
@@ -351,11 +493,13 @@ export const useAppStore = defineStore('app', {
       const target = this.templates.find((item) => item.id === id)
       if (!target) return
       const idNew = `tpl-${Date.now()}`
+      const versionNumber = this.templates.length + 1
+      const newVersion = `v${versionNumber}.0`
       this.templates.unshift({
         ...deepClone(target),
         id: idNew,
         name: `${target.name}-复制`,
-        version: target.version,
+        version: newVersion,
         updatedAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
       })
       this.activeTemplateId = idNew
